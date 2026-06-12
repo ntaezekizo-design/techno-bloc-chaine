@@ -2,7 +2,7 @@
 const { query, queryOne, run } = require('../config/database');
 const { generateTxId, MIN_FEE, COINBASE_ADDRESS } = require('../config/blockchain');
 
-const isPostgres = (process.env.DATABASE_URL || '').startsWith('postgres');
+const isPostgres = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
 
 class Transaction {
   static async addToMempool(from, to, amount, fee = MIN_FEE) {

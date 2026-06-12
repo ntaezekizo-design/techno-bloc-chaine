@@ -8,7 +8,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
-const isPostgres   = DATABASE_URL.startsWith('postgres');
+const isPostgres   = DATABASE_URL.toLowerCase().includes('postgres');
 
 async function init() {
   console.log('\n⬡  EZEKIZO — Init base de données');

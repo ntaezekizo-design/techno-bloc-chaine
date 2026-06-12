@@ -4,7 +4,7 @@
  * API identique dans les deux cas : query / queryOne / run
  */
 
-const isPostgres = (process.env.DATABASE_URL || '').startsWith('postgres');
+const isPostgres = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
 
 // ════════════════════════════════════════════
 //  POSTGRESQL

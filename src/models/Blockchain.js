@@ -1,6 +1,5 @@
 'use strict';
-const { query, queryOne, run, isPostgres } = require('../config/database');
-const { INITIAL_DIFFICULTY, MAX_DIFFICULTY, TARGET_BLOCK_TIME, COINBASE_ADDRESS } = require('../config/blockchain');
+const { query, queryOne, run, isPostgres } = require('../config/database');const { INITIAL_DIFFICULTY, MAX_DIFFICULTY, TARGET_BLOCK_TIME, COINBASE_ADDRESS } = require('../config/blockchain');
 const Block       = require('./Block');
 const Transaction = require('./Transaction');
 const Wallet      = require('./Wallet');
