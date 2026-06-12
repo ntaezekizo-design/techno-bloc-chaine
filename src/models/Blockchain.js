@@ -1,5 +1,5 @@
 'use strict';
-const { query, queryOne, run, isPostgres } = require('../config/database');const { INITIAL_DIFFICULTY, MAX_DIFFICULTY, TARGET_BLOCK_TIME, COINBASE_ADDRESS } = require('../config/blockchain');
+const { query, queryOne, run } = require('../config/database');const { INITIAL_DIFFICULTY, MAX_DIFFICULTY, TARGET_BLOCK_TIME, COINBASE_ADDRESS } = require('../config/blockchain');
 const Block       = require('./Block');
 const Transaction = require('./Transaction');
 const Wallet      = require('./Wallet');
@@ -19,16 +19,12 @@ class Blockchain {
     const currentDiff = await this.getDifficulty();
     if (currentHeight < 10 || currentHeight % 10 !== 0) return currentDiff;
 
-    // UNIX_TIMESTAMP est MySQL-only → EXTRACT(EPOCH FROM ...) pour PostgreSQL
-    const timeSql = isPostgres
-      ? `SELECT MIN(EXTRACT(EPOCH FROM created_at)) AS first_time,
-                MAX(EXTRACT(EPOCH FROM created_at)) AS last_time
-         FROM blocks WHERE block_index > ? AND block_index <= ?`
-      : `SELECT MIN(UNIX_TIMESTAMP(created_at)) AS first_time,
-                MAX(UNIX_TIMESTAMP(created_at)) AS last_time
-         FROM blocks WHERE block_index > ? AND block_index <= ?`;
-
-    const row = await queryOne(timeSql, [currentHeight - 10, currentHeight]);
+    // SQLite : strftime('%s', ...) retourne les secondes Unix
+    const row = await queryOne(`
+      SELECT MIN(strftime('%s', created_at)) AS first_time,
+             MAX(strftime('%s', created_at)) AS last_time
+      FROM blocks WHERE block_index > ? AND block_index <= ?
+    `, [currentHeight - 10, currentHeight]);
     if (!row || !row.first_time || !row.last_time) return currentDiff;
 
     const elapsed    = parseFloat(row.last_time) - parseFloat(row.first_time);

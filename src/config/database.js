@@ -1,97 +1,124 @@
 'use strict';
 /**
- * Adaptateur DB universel — PostgreSQL (Render) ou MySQL (local)
- * API identique dans les deux cas : query / queryOne / run
+ * Base de données SQLite embarquée via sql.js (WebAssembly)
+ * Aucune compilation native — fonctionne partout (Windows, Linux, Render)
+ *
+ * Le fichier .db est persisté sur disque et rechargé à chaque démarrage.
+ * En mémoire pendant l'exécution, sauvegardé à chaque écriture.
  */
 
-const isPostgres = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
+const fs   = require('fs');
+const path = require('path');
 
-// ════════════════════════════════════════════
-//  POSTGRESQL
-// ════════════════════════════════════════════
-let pgPool;
+// ── Chemin du fichier SQLite ──────────────────────────────
+const DB_DIR  = process.env.DB_PATH
+  ? path.dirname(process.env.DB_PATH)
+  : path.join(__dirname, '..', '..', 'data');
 
-function getPgPool() {
-  if (pgPool) return pgPool;
-  const { Pool } = require('pg');
-  pgPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 5,
-  });
-  pgPool.on('error', err => console.error('[PG] Connexion perdue:', err.message));
-  return pgPool;
+const DB_FILE = process.env.DB_PATH
+  || path.join(DB_DIR, 'ezekizo.db');
+
+// Crée le dossier data/ s'il n'existe pas
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
 }
 
-/** Convertit les ? en $1 $2 … pour pg */
-function toPlaceholders(sql) {
-  let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
-}
+// ── Instance DB (initialisée de façon asynchrone) ─────────
+let db = null;
 
-async function pgQuery(sql, params = []) {
-  const res = await getPgPool().query(toPlaceholders(sql), params);
-  return res.rows;
-}
+async function getDb() {
+  if (db) return db;
 
-async function pgRun(sql, params = []) {
-  let pgSql = toPlaceholders(sql);
-  // Ajoute RETURNING id sur les INSERT pour récupérer l'id généré
-  if (/^\s*INSERT/i.test(pgSql)) {
-    pgSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+  const initSqlJs = require('sql.js');
+  const SQL = await initSqlJs();
+
+  // Charge le fichier existant ou crée une DB vide
+  if (fs.existsSync(DB_FILE)) {
+    const fileBuffer = fs.readFileSync(DB_FILE);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    db = new SQL.Database();
   }
-  const res = await getPgPool().query(pgSql, params);
-  return {
-    insertId:     res.rows[0]?.id ?? null,
-    affectedRows: res.rowCount,
-  };
+
+  // Applique le schéma (CREATE TABLE IF NOT EXISTS → idempotent)
+  const schemaPath = path.join(__dirname, '..', '..', 'database', 'schema.sql');
+  if (fs.existsSync(schemaPath)) {
+    const schema = fs.readFileSync(schemaPath, 'utf8');
+    db.run(schema);
+    _save();
+  }
+
+  console.log(`  🗄️   SQLite (sql.js) : ${DB_FILE}`);
+  return db;
 }
 
-// ════════════════════════════════════════════
-//  MYSQL
-// ════════════════════════════════════════════
-let mysqlPool;
-
-function getMysqlPool() {
-  if (mysqlPool) return mysqlPool;
-  const mysql = require('mysql2/promise');
-  mysqlPool = mysql.createPool({
-    host:               process.env.DB_HOST     || 'localhost',
-    port:               parseInt(process.env.DB_PORT || '3306'),
-    database:           process.env.DB_NAME     || 'cryptomine',
-    user:               process.env.DB_USER     || 'root',
-    password:           process.env.DB_PASS     || '',
-    charset:            'utf8mb4',
-    connectionLimit:    5,
-    waitForConnections: true,
-  });
-  return mysqlPool;
+/** Persiste la DB en mémoire vers le fichier disque */
+function _save() {
+  if (!db) return;
+  try {
+    const data = db.export();
+    fs.writeFileSync(DB_FILE, Buffer.from(data));
+  } catch (e) {
+    console.error('[DB] Erreur sauvegarde :', e.message);
+  }
 }
 
-async function mysqlQuery(sql, params = []) {
-  const [rows] = await getMysqlPool().execute(sql, params);
-  return rows;
+// ── Convertit les résultats sql.js en tableau d'objets ────
+function _toRows(result) {
+  if (!result || !result[0]) return [];
+  const { columns, values } = result[0];
+  return values.map(row =>
+    Object.fromEntries(columns.map((col, i) => [col, row[i]]))
+  );
 }
 
-async function mysqlRun(sql, params = []) {
-  const [result] = await getMysqlPool().execute(sql, params);
-  return result; // { insertId, affectedRows }
-}
+// ── API : query / queryOne / run ──────────────────────────
 
-// ════════════════════════════════════════════
-//  API UNIFIÉE
-// ════════════════════════════════════════════
+/**
+ * SELECT → retourne un tableau de lignes
+ */
 async function query(sql, params = []) {
-  return isPostgres ? pgQuery(sql, params) : mysqlQuery(sql, params);
+  const d = await getDb();
+  try {
+    // sql.js utilise des paramètres nommés ou positionnels avec ?
+    const stmt   = d.prepare(sql);
+    const result = [];
+    stmt.bind(params);
+    while (stmt.step()) {
+      result.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return result;
+  } catch (e) {
+    throw e;
+  }
 }
 
+/**
+ * SELECT → retourne la première ligne ou null
+ */
 async function queryOne(sql, params = []) {
   const rows = await query(sql, params);
   return rows[0] ?? null;
 }
 
+/**
+ * INSERT / UPDATE / DELETE → retourne { insertId, affectedRows }
+ */
 async function run(sql, params = []) {
-  return isPostgres ? pgRun(sql, params) : mysqlRun(sql, params);
+  const d = await getDb();
+  try {
+    d.run(sql, params);
+    const insertId     = d.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] ?? null;
+    const affectedRows = d.getRowsModified();
+    _save(); // persistance immédiate après chaque écriture
+    return { insertId, affectedRows };
+  } catch (e) {
+    throw e;
+  }
 }
 
-module.exports = { query, queryOne, run, isPostgres };
+// Initialise la DB au chargement du module
+getDb().catch(err => console.error('[DB] Init échouée :', err.message));
+
+module.exports = { query, queryOne, run, getDb };

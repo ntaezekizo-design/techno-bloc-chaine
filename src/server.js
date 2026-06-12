@@ -60,27 +60,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: isDev ? msg : 'Internal server error' });
 });
 
-// ─── Debug route (diagnostics DB — visible sur Render) ───────────────────────
-app.get('/api/debug', async (req, res) => {
-  const dbUrl    = process.env.DATABASE_URL || '';
-  const dbType   = dbUrl.toLowerCase().includes('postgres') ? 'PostgreSQL' : 'MySQL';
-  const maskedUrl = dbUrl ? dbUrl.replace(/:\/\/[^@]+@/, '://***@') : '(non définie)';
-  let dbStatus   = 'non testé';
-  let dbError    = null;
-
+// ─── Debug route ─────────────────────────────────────────────────────────────
+app.get('/api/debug', (req, res) => {
+  const { db } = require('./config/database');
+  let dbStatus = 'erreur';
+  let dbError  = null;
   try {
-    const { query } = require('./config/database');
-    await query('SELECT 1');
+    db.prepare('SELECT 1').get();
     dbStatus = 'connecté ✅';
   } catch (e) {
-    dbStatus = 'erreur ❌';
-    dbError  = e?.message || e?.toString() || 'erreur inconnue';
+    dbError = e?.message || String(e);
   }
-
   res.json({
     env:       process.env.NODE_ENV,
-    db_type:   dbType,
-    db_url:    maskedUrl,
+    db_engine: 'SQLite (better-sqlite3)',
     db_status: dbStatus,
     db_error:  dbError,
     node:      process.version,
@@ -90,28 +83,14 @@ app.get('/api/debug', async (req, res) => {
 
 // ─── Test connexion DB au démarrage ──────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || '3000', 10);
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   const env = process.env.NODE_ENV || 'development';
-  const dbUrl = process.env.DATABASE_URL || '';
-  const dbType = dbUrl.toLowerCase().includes('postgres') ? 'PostgreSQL' : 'MySQL';
-
   console.log('');
   console.log('  ⬡  EZEKIZO Blockchain');
   console.log(`  🚀  http://localhost:${PORT}`);
   console.log(`  ⚙️   Environnement : ${env.toUpperCase()}`);
-  console.log(`  🗄️   Base de données : ${dbType}`);
   if (isDev) console.log('  👁️   Mode DEV — rechargement auto actif');
-  console.log('');
-
-  // Test de connexion DB immédiat pour détecter les erreurs tôt
-  try {
-    const { query } = require('./config/database');
-    await query('SELECT 1');
-    console.log('  ✅  Connexion base de données OK');
-  } catch (err) {
-    console.error('  ❌  ERREUR DB :', err.message);
-    console.error('      DATABASE_URL :', dbUrl ? dbUrl.replace(/:\/\/.*@/, '://***@') : '(non définie)');
-  }
+  console.log('  ✅  Base de données SQLite prête');
   console.log('');
 });
 

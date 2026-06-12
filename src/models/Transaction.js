@@ -2,9 +2,8 @@
 const { query, queryOne, run } = require('../config/database');
 const { generateTxId, MIN_FEE, COINBASE_ADDRESS } = require('../config/blockchain');
 
-const isPostgres = (process.env.DATABASE_URL || '').toLowerCase().includes('postgres');
-
 class Transaction {
+
   static async addToMempool(from, to, amount, fee = MIN_FEE) {
     const txid = generateTxId(from, to, amount, Date.now());
     await run(
@@ -25,28 +24,22 @@ class Transaction {
   }
 
   static async confirm(tx, blockId) {
-    if (isPostgres) {
-      // PostgreSQL : upsert avec ON CONFLICT
-      await run(`
-        INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', CURRENT_TIMESTAMP)
-        ON CONFLICT (txid) DO UPDATE SET block_id = ?, status = 'confirmed', confirmed_at = CURRENT_TIMESTAMP
-      `, [tx.txid, tx.from_address, tx.to_address, tx.amount, tx.fee || 0, blockId, blockId]);
-    } else {
-      // MySQL
-      await run(`
-        INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', CURRENT_TIMESTAMP)
-        ON DUPLICATE KEY UPDATE block_id = ?, status = 'confirmed', confirmed_at = CURRENT_TIMESTAMP
-      `, [tx.txid, tx.from_address, tx.to_address, tx.amount, tx.fee || 0, blockId, blockId]);
-    }
+    // SQLite supporte ON CONFLICT nativement
+    await run(`
+      INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'confirmed', datetime('now'))
+      ON CONFLICT(txid) DO UPDATE SET
+        block_id     = excluded.block_id,
+        status       = 'confirmed',
+        confirmed_at = datetime('now')
+    `, [tx.txid, tx.from_address, tx.to_address, tx.amount, tx.fee || 0, blockId]);
   }
 
   static async addCoinbase(minerAddress, reward, blockId) {
     const txid = generateTxId(COINBASE_ADDRESS, minerAddress, reward, Date.now());
     await run(`
       INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
-      VALUES (?, 'COINBASE', ?, ?, 0, ?, 'confirmed', CURRENT_TIMESTAMP)
+      VALUES (?, 'COINBASE', ?, ?, 0, ?, 'confirmed', datetime('now'))
     `, [txid, minerAddress, reward, blockId]);
   }
 

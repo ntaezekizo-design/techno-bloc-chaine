@@ -4,6 +4,12 @@ node_modules/
 # Variables d'environnement (contient les mots de passe DB)
 .env
 
+# Base de données SQLite (générée automatiquement)
+data/
+*.db
+*.db-wal
+*.db-shm
+
 # Logs
 *.log
 npm-debug.log*
