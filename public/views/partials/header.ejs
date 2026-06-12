@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= pageTitle %> — EZEKIZO</title>
   <meta name="description" content="EZEKIZO — Minez, Tradez et Explorez EZK sur la blockchain de nouvelle génération.">
-  <!-- Mobile first viewport -->
   <meta name="theme-color" content="#04060f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -30,7 +29,7 @@
       <div class="nav-section-title">Principal</div>
       <a class="nav-item<%= pageActive === 'index'        ? ' active' : '' %>" href="/"><span class="nav-icon">📊</span><span class="nav-label">Tableau de bord</span></a>
       <a class="nav-item<%= pageActive === 'mine'         ? ' active' : '' %>" href="/mine"><span class="nav-icon">⛏</span><span class="nav-label">Minage</span></a>
-      <a class="nav-item<%= pageActive === 'wallet'       ? ' active' : '' %>" href="/wallet"><span class="nav-icon">💼</span><span class="nav-label">Portefeuilles</span></a>
+      <a class="nav-item<%= pageActive === 'wallet'       ? ' active' : '' %>" href="/wallet"><span class="nav-icon">💼</span><span class="nav-label">Mes Portefeuilles</span></a>
       <a class="nav-item<%= pageActive === 'transactions' ? ' active' : '' %>" href="/transactions"><span class="nav-icon">↔</span><span class="nav-label">Transactions</span></a>
       <div class="nav-section-title">Explorateur</div>
       <a class="nav-item<%= pageActive === 'explorer'     ? ' active' : '' %>" href="/explorer"><span class="nav-icon">🔎</span><span class="nav-label">Explorateur de Blocs</span></a>
@@ -38,6 +37,15 @@
     </nav>
 
     <div class="sidebar-footer">
+      <% if (user) { %>
+        <div class="sidebar-user">
+          <div class="sidebar-user-avatar"><%= user.username.charAt(0).toUpperCase() %></div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name"><%= user.username %></div>
+            <a href="/logout" class="sidebar-logout">Déconnexion</a>
+          </div>
+        </div>
+      <% } %>
       <div class="network-status">
         <div class="status-dot"></div>
         <div>
@@ -67,6 +75,12 @@
         </div>
         <div class="badge badge-pending" id="header-mempool-badge">Mempool: <span id="stat-mempool">0</span></div>
         <div class="badge badge-gold" id="header-blocks-badge">EZK · Bloc <span id="stat-blocks">?</span></div>
+        <% if (user) { %>
+          <div class="header-user">
+            <div class="header-user-avatar"><%= user.username.charAt(0).toUpperCase() %></div>
+            <span class="header-username"><%= user.username %></span>
+          </div>
+        <% } %>
       </div>
     </div>
     <div class="page-content">

@@ -1,10 +1,11 @@
 'use strict';
 const express     = require('express');
 const router      = express.Router();
+const crypto      = require('crypto');
 const Blockchain  = require('../models/Blockchain');
 const Transaction = require('../models/Transaction');
 const Wallet      = require('../models/Wallet');
-const { query, queryOne } = require('../config/database');
+const { query, queryOne, run } = require('../config/database');
 const { COIN_NAME, COIN_SYMBOL, MAX_SUPPLY } = require('../config/blockchain');
 
 /** Extrait toujours un message d'erreur lisible */
@@ -68,7 +69,26 @@ router.post('/mine', async (req, res) => {
   try {
     const minerAddress = (req.body?.miner_address || req.query.miner_address || '').trim();
     if (!minerAddress) return res.status(400).json({ success: false, error: 'miner_address est requis' });
-    await Wallet.upsert(minerAddress);
+
+    // If user is logged in, verify the wallet belongs to them
+    const userId = req.session?.userId;
+    if (userId) {
+      const wallet = await Wallet.getByAddress(minerAddress);
+      if (wallet && wallet.user_id && wallet.user_id !== userId) {
+        return res.status(403).json({ success: false, error: 'Ce portefeuille ne vous appartient pas' });
+      }
+      // If wallet exists without user_id (old miner wallet), allow it
+      // If wallet doesn't exist at all, create it linked to user
+      if (!wallet) {
+        await run(
+          "INSERT OR IGNORE INTO wallets (address, public_key, label, user_id) VALUES (?, ?, 'Miner Wallet', ?)",
+          [minerAddress, require('crypto').createHash('sha256').update(minerAddress).digest('hex'), userId]
+        );
+      }
+    } else {
+      await Wallet.upsert(minerAddress);
+    }
+
     const result = await new Blockchain().mineNextBlock(minerAddress);
     res.json({ success: true, message: 'Bloc miné avec succès !', data: result });
   } catch (e) {
@@ -139,7 +159,11 @@ router.get('/wallet', async (req, res) => {
       wallet.tx_count = parseInt(row?.c) || 0;
       return res.json({ success: true, wallet });
     }
-    const wallets = await Wallet.getAll();
+    // If user is authenticated, return their wallets; otherwise return all (explorer)
+    const userId = req.session?.userId;
+    const wallets = userId
+      ? await Wallet.getByUser(userId)
+      : await Wallet.getAll();
     res.json({ success: true, wallets, count: wallets.length });
   } catch (e) {
     console.error('[/api/wallet GET]', errMsg(e));
@@ -150,7 +174,8 @@ router.get('/wallet', async (req, res) => {
 router.post('/wallet', async (req, res) => {
   try {
     const label  = (req.body?.label || 'My Wallet').trim();
-    const wallet = await Wallet.create(label);
+    const userId = req.session?.userId || null;
+    const wallet = await Wallet.create(label, userId);
     res.json({ success: true, wallet });
   } catch (e) {
     console.error('[/api/wallet POST]', errMsg(e));

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Créer un compte — EZEKIZO</title>
+  <meta name="description" content="Créez votre compte EZEKIZO et commencez à miner">
+  <meta name="theme-color" content="#04060f">
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-page">
+
+  <!-- Left panel — branding -->
+  <div class="auth-brand">
+    <div class="auth-brand-inner">
+      <a href="/" class="auth-logo">
+        <div class="logo-icon">⭡</div>
+        <div class="logo-text-wrap">
+          <div class="logo-text">EZEKIZO</div>
+          <div class="logo-tag">EZK · BLOCKCHAIN</div>
+        </div>
+      </a>
+      <h2 class="auth-brand-title">Commencez à miner<br>de l'EZK aujourd'hui</h2>
+      <p class="auth-brand-sub">Rejoignez le réseau EZEKIZO et créez vos portefeuilles en quelques secondes.</p>
+      <div class="auth-features">
+        <div class="auth-feature"><span class="auth-feature-icon">🔒</span><span>Compte personnel sécurisé</span></div>
+        <div class="auth-feature"><span class="auth-feature-icon">💎</span><span>Portefeuilles qui vous appartiennent</span></div>
+        <div class="auth-feature"><span class="auth-feature-icon">⛏</span><span>Minage illimité</span></div>
+        <div class="auth-feature"><span class="auth-feature-icon">📈</span><span>Suivi de vos gains</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel — form -->
+  <div class="auth-panel">
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <h1 class="auth-title">Créer un compte</h1>
+        <p class="auth-subtitle">Rejoignez le réseau EZEKIZO gratuitement</p>
+      </div>
+
+      <% if (error) { %>
+        <div class="alert alert-error">
+          <span class="alert-icon">⚠</span>
+          <%= error %>
+        </div>
+      <% } %>
+
+      <form method="POST" action="/register" class="auth-form" autocomplete="on" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="username">Nom d'utilisateur</label>
+          <input
+            class="form-input"
+            type="text"
+            id="username"
+            name="username"
+            placeholder="mon_pseudo"
+            value="<%= (values && values.username) ? values.username : '' %>"
+            autocomplete="username"
+            required
+            autofocus
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Adresse email</label>
+          <input
+            class="form-input"
+            type="email"
+            id="email"
+            name="email"
+            placeholder="email@exemple.com"
+            value="<%= (values && values.email) ? values.email : '' %>"
+            autocomplete="email"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Mot de passe</label>
+          <div class="input-password-wrap">
+            <input
+              class="form-input"
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Minimum 8 caractères"
+              autocomplete="new-password"
+              required
+              minlength="8"
+              oninput="checkStrength(this.value)"
+            >
+            <button type="button" class="toggle-password" onclick="togglePwd('password')" tabindex="-1" aria-label="Afficher">
+              <svg id="eye-password" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+          <div class="password-strength" id="pwd-strength" style="display:none">
+            <div class="strength-bar-wrap"><div class="strength-bar" id="strength-bar"></div></div>
+            <span class="strength-label" id="strength-label"></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="confirm">Confirmer le mot de passe</label>
+          <div class="input-password-wrap">
+            <input
+              class="form-input"
+              type="password"
+              id="confirm"
+              name="confirm"
+              placeholder="••••••••"
+              autocomplete="new-password"
+              required
+            >
+            <button type="button" class="toggle-password" onclick="togglePwd('confirm')" tabindex="-1" aria-label="Afficher">
+              <svg id="eye-confirm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full btn-auth">
+          Créer mon compte <span class="btn-arrow">→</span>
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>ou</span></div>
+
+      <div class="auth-footer">
+        Déjà un compte ?
+        <a href="/login" class="auth-link">Se connecter</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function togglePwd(id) {
+  const input = document.getElementById(id);
+  const icon  = document.getElementById('eye-' + id);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) icon.style.opacity = '0.5';
+  } else {
+    input.type = 'password';
+    if (icon) icon.style.opacity = '1';
+  }
+}
+
+function checkStrength(val) {
+  const bar   = document.getElementById('strength-bar');
+  const label = document.getElementById('strength-label');
+  const wrap  = document.getElementById('pwd-strength');
+  if (!bar || !label) return;
+
+  wrap.style.display = val.length ? 'flex' : 'none';
+
+  let score = 0;
+  if (val.length >= 8)  score++;
+  if (val.length >= 12) score++;
+  if (/[A-Z]/.test(val))  score++;
+  if (/[0-9]/.test(val))  score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+
+  const levels = [
+    { pct: '20%', color: 'var(--red-400)',   text: 'Très faible' },
+    { pct: '40%', color: 'var(--red-400)',   text: 'Faible' },
+    { pct: '60%', color: '#f59e0b',          text: 'Moyen' },
+    { pct: '80%', color: 'var(--teal-400)',  text: 'Fort' },
+    { pct: '100%',color: 'var(--green-400)', text: 'Très fort' },
+  ];
+  const lvl = levels[Math.min(score, 4)];
+  bar.style.width      = lvl.pct;
+  bar.style.background = lvl.color;
+  label.textContent    = lvl.text;
+  label.style.color    = lvl.color;
+}
+</script>
+
+</body>
+</html>

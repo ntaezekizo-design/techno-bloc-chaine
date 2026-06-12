@@ -12,18 +12,32 @@ class Wallet {
     return 'MINE' + publicKey.substring(0, 52).toUpperCase() + checksum;
   }
 
-  static async create(label = 'My Wallet') {
+  /**
+   * Create a new wallet, optionally linked to a user account.
+   * @param {string} label
+   * @param {number|null} userId
+   */
+  static async create(label = 'My Wallet', userId = null) {
     const address = Wallet.generateAddress();
     const pubKey  = crypto.createHash('sha256').update(address + Date.now()).digest('hex');
     const result  = await run(
-      'INSERT INTO wallets (address, public_key, label, balance) VALUES (?, ?, ?, 0)',
-      [address, pubKey, label]
+      'INSERT INTO wallets (address, public_key, label, balance, user_id) VALUES (?, ?, ?, 0, ?)',
+      [address, pubKey, label, userId]
     );
-    return { id: result.insertId, address, public_key: pubKey, label, balance: 0 };
+    return { id: result.insertId, address, public_key: pubKey, label, balance: 0, user_id: userId };
   }
 
+  /** All wallets (admin / explorer view) */
   static async getAll() {
     return query('SELECT id, address, label, balance, created_at FROM wallets ORDER BY balance DESC');
+  }
+
+  /** Wallets belonging to a specific user */
+  static async getByUser(userId) {
+    return query(
+      'SELECT id, address, label, balance, created_at FROM wallets WHERE user_id = ? ORDER BY balance DESC',
+      [userId]
+    );
   }
 
   static async getByAddress(address) {
@@ -43,9 +57,10 @@ class Wallet {
     return query('SELECT address, label, balance FROM wallets ORDER BY balance DESC LIMIT ?', [limit]);
   }
 
+  /** Used when a miner address arrives from the API — create only if not already present */
   static async upsert(address) {
     await run(
-      "INSERT IGNORE INTO wallets (address, public_key, label) VALUES (?, ?, 'Miner Wallet')",
+      "INSERT OR IGNORE INTO wallets (address, public_key, label) VALUES (?, ?, 'Miner Wallet')",
       [address, crypto.createHash('sha256').update(address).digest('hex')]
     );
   }

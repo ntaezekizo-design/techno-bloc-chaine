@@ -1,87 +1,155 @@
 <%- include('partials/header') %>
 
 <div class="grid-2 mb-6">
+
+  <!-- ─── Formulaire d'envoi ──────────────────────────── -->
   <div class="card">
     <div class="card-header">
       <span class="card-title">📤 Envoyer de l'EZK</span>
-      <span class="badge badge-cyan">Transfert Instantané</span>
+      <span class="badge badge-blue">Transfert P2P</span>
     </div>
+
     <% if (!wallets || wallets.length === 0) { %>
-      <div class="alert alert-warning">⚠ Vous devez avoir au moins un portefeuille pour envoyer des transactions.</div>
-      <a href="/wallet" class="btn btn-primary btn-full">Créer un Portefeuille</a>
+      <div class="empty-state" style="padding:32px 16px;">
+        <div class="empty-icon">💼</div>
+        <div class="empty-title">Aucun portefeuille</div>
+        <div class="empty-sub">Vous devez créer un portefeuille et y miner de l'EZK avant d'envoyer une transaction.</div>
+        <a href="/wallet" class="btn btn-primary mt-4">Créer un Portefeuille</a>
+      </div>
     <% } else { %>
       <div id="send-tx-form">
         <div class="form-group">
-          <label class="form-label">De (Portefeuille)</label>
+          <label class="form-label">De (votre portefeuille)</label>
           <select class="form-select" id="tx-from" onchange="updateFromBalance(this)">
             <% wallets.forEach(w => { %>
-              <option value="<%= w.address %>" data-balance="<%= parseFloat(w.balance) %>" <%= fromAddress === w.address ? 'selected' : '' %>>
+              <option value="<%= w.address %>"
+                      data-balance="<%= parseFloat(w.balance) %>"
+                      <%= fromAddress === w.address ? 'selected' : '' %>>
                 <%= w.label %> — <%= parseFloat(w.balance).toFixed(4) %> EZK
               </option>
             <% }) %>
           </select>
-          <div class="text-sm mt-4">Solde : <strong class="text-green" id="from-balance"><%= wallets.length > 0 ? parseFloat(wallets[0].balance).toFixed(4) : '0' %></strong> EZK</div>
+          <div class="text-sm mt-2" style="color:var(--text-400);">
+            Solde disponible : <strong class="text-green" id="from-balance">
+              <%= wallets.length > 0 ? parseFloat(wallets[0].balance).toFixed(4) : '0.0000' %>
+            </strong> EZK
+          </div>
         </div>
+
         <div class="form-group">
-          <label class="form-label">Vers (Adresse)</label>
-          <input type="text" class="form-input mono" id="tx-to" placeholder="MINE..." value="<%= viewAddress || '' %>">
+          <label class="form-label">Vers (adresse destinataire)</label>
+          <input type="text" class="form-input mono" id="tx-to"
+                 placeholder="MINE…"
+                 value="<%= viewAddress || '' %>">
         </div>
-        <div class="form-group">
-          <label class="form-label">Montant (EZK)</label>
-          <input type="number" class="form-input" id="tx-amount" placeholder="0.00000000" step="0.00000001" min="0.00000001">
+
+        <div class="grid-2" style="gap:12px;">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Montant (EZK)</label>
+            <input type="number" class="form-input" id="tx-amount"
+                   placeholder="0.00000001" step="0.00000001" min="0.00000001">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Frais (min 0.001)</label>
+            <input type="number" class="form-input" id="tx-fee"
+                   value="0.001" step="0.001" min="0.001">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Frais (EZK) — min 0.001</label>
-          <input type="number" class="form-input" id="tx-fee" value="0.001" step="0.001" min="0.001">
+
+        <div class="alert alert-info" style="margin:16px 0 0;">
+          <span>ℹ</span> La transaction sera confirmée lors du prochain bloc miné.
         </div>
-        <div class="alert alert-info mb-4">ℹ Les transactions vont dans le mempool et sont confirmées lors du prochain bloc miné.</div>
-        <button onclick="sendTransaction()" class="btn btn-primary btn-full btn-lg">↗ Envoyer la Transaction</button>
+
+        <button onclick="sendTransaction()" class="btn btn-primary btn-full btn-lg" style="margin-top:16px;">
+          ↗ Envoyer la Transaction
+        </button>
       </div>
     <% } %>
   </div>
 
+  <!-- ─── Mempool ─────────────────────────────────────── -->
   <div class="card">
     <div class="card-header">
-      <span class="card-title">⏳ Mempool <span class="mempool-badge" id="mempool-count">0</span></span>
-      <button class="btn btn-secondary btn-sm" onclick="loadMempool()">Actualiser</button>
+      <span class="card-title">⏳ Mempool en attente</span>
+      <div class="flex gap-2 items-center">
+        <span class="badge badge-pending" id="mempool-count">0</span>
+        <button class="btn btn-secondary btn-sm" onclick="loadMempool()">↺ Actualiser</button>
+      </div>
     </div>
     <div id="mempool-list">
-      <div class="text-center text-muted" style="padding:20px">Chargement...</div>
+      <div class="text-center text-muted" style="padding:40px;">
+        <div style="font-size:32px;margin-bottom:8px;">📭</div>
+        Chargement…
+      </div>
     </div>
   </div>
+
 </div>
 
+<!-- ─── Historique ─────────────────────────────────────── -->
 <div class="card">
   <div class="card-header">
-    <span class="card-title">📋 Transactions Récentes</span>
-    <% if (viewAddress) { %>
-      <span class="badge badge-cyan font-mono"><%= viewAddress.substring(0,14) %>...</span>
-    <% } %>
+    <span class="card-title">📋 Historique des Transactions</span>
+    <div class="flex gap-2 items-center">
+      <% if (viewAddress) { %>
+        <span class="badge badge-blue font-mono"><%= viewAddress.substring(0,14) %>…</span>
+        <a href="/transactions" class="btn btn-ghost btn-sm">Voir tout</a>
+      <% } %>
+      <button class="btn btn-secondary btn-sm" onclick="loadTransactions()">↺ Actualiser</button>
+    </div>
   </div>
   <div class="table-wrapper">
     <table class="data-table">
-      <thead><tr><th>TXID</th><th>De</th><th>Vers</th><th>Montant</th><th>Frais</th><th>Bloc</th><th>Statut</th><th>Date</th></tr></thead>
+      <thead>
+        <tr>
+          <th>TXID</th><th>De</th><th>Vers</th>
+          <th>Montant</th><th>Frais</th><th>Bloc</th><th>Statut</th><th>Date</th>
+        </tr>
+      </thead>
       <tbody id="tx-table-body">
-        <tr><td colspan="8" class="text-center text-muted" style="padding:20px">Chargement...</td></tr>
+        <tr><td colspan="8" class="text-center text-muted" style="padding:32px">Chargement…</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
+<style>
+.empty-state   { text-align:center; }
+.empty-icon    { font-size:40px; margin-bottom:10px; }
+.empty-title   { font-size:16px; font-weight:700; color:var(--text-200); margin-bottom:6px; }
+.empty-sub     { font-size:13px; color:var(--text-600); line-height:1.6; }
+.mt-4          { margin-top:16px; display:inline-block; }
+
+.mempool-tx {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+.mempool-tx:last-child { border-bottom: none; }
+</style>
+
 <script>
 const VIEW_ADDRESS = <%- JSON.stringify(viewAddress || '') %>;
 
+// ─── Balance update ──────────────────────────────────
 function updateFromBalance(sel) {
   const opt = sel.options[sel.selectedIndex];
-  document.getElementById('from-balance').textContent = parseFloat(opt.dataset.balance).toFixed(4);
+  const el  = document.getElementById('from-balance');
+  if (el) el.textContent = parseFloat(opt.dataset.balance).toFixed(4);
 }
 
+// ─── Send transaction ────────────────────────────────
 function sendTransaction() {
-  const from   = document.getElementById('tx-from').value;
-  const to     = document.getElementById('tx-to').value.trim();
-  const amount = parseFloat(document.getElementById('tx-amount').value);
-  const fee    = parseFloat(document.getElementById('tx-fee').value);
-  if (!to || !amount) return showToast('⚠ Remplissez tous les champs', 'warning');
+  const from   = (document.getElementById('tx-from')?.value   || '').trim();
+  const to     = (document.getElementById('tx-to')?.value     || '').trim();
+  const amount = parseFloat(document.getElementById('tx-amount')?.value || '0');
+  const fee    = parseFloat(document.getElementById('tx-fee')?.value   || '0.001');
+
+  if (!to)      return showToast('⚠ Entrez une adresse destinataire', 'warning');
+  if (!amount || amount <= 0) return showToast('⚠ Entrez un montant valide', 'warning');
+
+  const btn = document.querySelector('#send-tx-form .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Envoi en cours…'; }
 
   fetch('/api/transaction', {
     method: 'POST',
@@ -90,71 +158,116 @@ function sendTransaction() {
   })
   .then(r => r.json())
   .then(data => {
+    if (btn) { btn.disabled = false; btn.textContent = '↗ Envoyer la Transaction'; }
     if (data.success) {
       showToast('✅ Transaction envoyée au mempool !', 'success');
-      document.getElementById('tx-to').value = '';
+      document.getElementById('tx-to').value     = '';
       document.getElementById('tx-amount').value = '';
       loadMempool();
       loadTransactions();
     } else {
       showToast('❌ ' + data.error, 'error');
     }
+  })
+  .catch(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '↗ Envoyer la Transaction'; }
+    showToast('❌ Erreur réseau', 'error');
   });
 }
 
+// ─── Load mempool ─────────────────────────────────────
 function loadMempool() {
   fetch('/api/transaction?mempool=1')
     .then(r => r.json())
     .then(data => {
-      const el = document.getElementById('mempool-list');
+      const el  = document.getElementById('mempool-list');
       const cnt = document.getElementById('mempool-count');
       if (cnt) cnt.textContent = data.count || 0;
-      if (!data.mempool || data.mempool.length === 0) {
-        el.innerHTML = '<div class="text-center text-muted" style="padding:20px">Mempool vide</div>';
+
+      if (!data.mempool || !data.mempool.length) {
+        el.innerHTML = `
+          <div class="text-center text-muted" style="padding:40px;">
+            <div style="font-size:32px;margin-bottom:8px;">✅</div>
+            Mempool vide — toutes les transactions sont confirmées
+          </div>`;
         return;
       }
+
       el.innerHTML = data.mempool.map(tx => `
-        <div class="tx-item" style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
-          <div class="font-mono text-cyan text-sm">${tx.txid.substring(0,20)}...</div>
-          <div class="flex justify-between mt-1">
-            <span class="text-muted">${tx.from_address.substring(0,12)}... → ${tx.to_address.substring(0,12)}...</span>
+        <div class="mempool-tx">
+          <div class="font-mono text-cyan" style="font-size:11px;">${tx.txid.substring(0,24)}…</div>
+          <div class="flex justify-between mt-2" style="font-size:12px;">
+            <span class="text-muted">
+              <span class="font-mono">${tx.from_address.substring(0,10)}…</span>
+              <span style="margin:0 6px;color:var(--text-600);">→</span>
+              <span class="font-mono">${tx.to_address.substring(0,10)}…</span>
+            </span>
             <span class="text-green font-bold">${parseFloat(tx.amount).toFixed(4)} EZK</span>
+          </div>
+          <div class="text-muted" style="font-size:11px;margin-top:4px;">
+            Frais : ${parseFloat(tx.fee).toFixed(4)} EZK
           </div>
         </div>
       `).join('');
+    })
+    .catch(() => {
+      document.getElementById('mempool-list').innerHTML =
+        '<div class="text-center text-muted" style="padding:20px;">Erreur de chargement</div>';
     });
 }
 
+// ─── Load transaction history ─────────────────────────
 function loadTransactions() {
-  const url = VIEW_ADDRESS ? `/api/transaction?address=${VIEW_ADDRESS}` : '/api/transaction';
+  const url = VIEW_ADDRESS
+    ? `/api/transaction?address=${encodeURIComponent(VIEW_ADDRESS)}`
+    : '/api/transaction';
+
   fetch(url)
     .then(r => r.json())
     .then(data => {
       const tbody = document.getElementById('tx-table-body');
-      const txs = data.transactions || [];
+      const txs   = data.transactions || [];
+
       if (!txs.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:20px">Aucune transaction</td></tr>';
+        tbody.innerHTML = `
+          <tr><td colspan="8" class="text-center text-muted" style="padding:40px;">
+            <div style="font-size:28px;margin-bottom:8px;">📭</div>
+            Aucune transaction pour le moment
+          </td></tr>`;
         return;
       }
+
       tbody.innerHTML = txs.map(tx => {
-        const statusClass = tx.status === 'confirmed' ? 'badge-success' : 'badge-pending';
+        const statusBadge = tx.status === 'confirmed'
+          ? '<span class="badge badge-success">Confirmée</span>'
+          : '<span class="badge badge-pending">En attente</span>';
+        const fromCell = tx.from_address === 'COINBASE'
+          ? '<span class="badge badge-gold">COINBASE</span>'
+          : `<span class="font-mono text-sm" title="${tx.from_address}">${tx.from_address.substring(0,12)}…</span>`;
         return `<tr>
-          <td class="font-mono text-sm text-cyan">${tx.txid.substring(0,14)}...</td>
-          <td class="font-mono text-sm">${tx.from_address === 'COINBASE' ? '<span class="badge badge-gold">COINBASE</span>' : tx.from_address.substring(0,12)+'...'}</td>
-          <td class="font-mono text-sm">${tx.to_address.substring(0,12)}...</td>
+          <td><span class="font-mono text-sm text-cyan" title="${tx.txid}" style="cursor:pointer"
+                    onclick="copyToClipboard('${tx.txid}','TXID')">${tx.txid.substring(0,12)}…</span></td>
+          <td>${fromCell}</td>
+          <td><span class="font-mono text-sm" title="${tx.to_address}">${tx.to_address.substring(0,12)}…</span></td>
           <td class="text-green font-bold">${parseFloat(tx.amount).toFixed(4)} EZK</td>
-          <td class="text-muted">${parseFloat(tx.fee).toFixed(4)}</td>
-          <td>${tx.block_index !== null ? '#'+tx.block_index : '—'}</td>
-          <td><span class="badge ${statusClass}">${tx.status}</span></td>
+          <td class="text-muted text-sm">${parseFloat(tx.fee).toFixed(4)}</td>
+          <td>${tx.block_index != null ? '<span class="badge badge-blue">#' + tx.block_index + '</span>' : '—'}</td>
+          <td>${statusBadge}</td>
           <td class="text-sm text-muted">${new Date(tx.created_at).toLocaleString('fr')}</td>
         </tr>`;
       }).join('');
+    })
+    .catch(() => {
+      document.getElementById('tx-table-body').innerHTML =
+        '<tr><td colspan="8" class="text-center text-muted" style="padding:20px">Erreur de chargement</td></tr>';
     });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   loadMempool();
   loadTransactions();
+  // Refresh mempool every 10s
+  setInterval(loadMempool, 10000);
 });
 </script>
 

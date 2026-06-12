@@ -1,9 +1,9 @@
 -- ============================================================
---  EZEKIZO CryptoMine — Schéma SQLite
+--  EZEKIZO CryptoMine — Schéma SQLite (sql.js / WebAssembly)
 --  Exécuté automatiquement au démarrage du serveur
+--  Note: sql.js ne supporte pas journal_mode WAL
 -- ============================================================
 
-PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
 -- ─── blockchain_stats ─────────────────────────────────────
@@ -51,17 +51,32 @@ VALUES (
   0, 4, 'GENESIS', 0, 0
 );
 
+-- ─── users ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  username      TEXT    NOT NULL UNIQUE,
+  email         TEXT    NOT NULL UNIQUE,
+  password_hash TEXT    NOT NULL,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email    ON users(email);
+
 -- ─── wallets ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS wallets (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NULL,
   address    TEXT    NOT NULL UNIQUE,
   public_key TEXT    NOT NULL,
   label      TEXT    NOT NULL DEFAULT 'My Wallet',
   balance    REAL    NOT NULL DEFAULT 0,
-  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_wallets_address ON wallets(address);
+CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
 
 -- ─── transactions ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS transactions (
