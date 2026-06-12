@@ -1,0 +1,135 @@
+<%- include('partials/header') %>
+
+<div class="grid-2 mb-6">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">✨ Créer un Nouveau Portefeuille</span>
+    </div>
+    <div id="create-wallet-form">
+      <div class="form-group">
+        <label class="form-label">Nom du Portefeuille</label>
+        <input type="text" class="form-input" id="wallet-label"
+               placeholder="ex: Portefeuille Principal, Minage..." value="Mon Portefeuille"
+               maxlength="50">
+      </div>
+      <div class="alert alert-info">ℹ Une adresse EZK unique sera générée automatiquement.</div>
+      <button onclick="createWallet()" class="btn btn-primary btn-full" id="create-btn">
+        💰 Générer le Portefeuille
+      </button>
+    </div>
+    <div id="new-wallet-result" style="display:none;margin-top:20px;">
+      <div class="alert alert-success">✅ Portefeuille créé avec succès !</div>
+      <div class="form-group">
+        <label class="form-label">Adresse du Portefeuille</label>
+        <div class="hash-display" id="new-wallet-address"
+             style="cursor:pointer;word-break:break-all;"
+             onclick="copyToClipboard(this.textContent,'Adresse')">—</div>
+        <div class="text-sm text-muted mt-2">👆 Cliquez pour copier</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🏆 Classement</span>
+      <span class="badge badge-cyan">Plus gros soldes</span>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Nom</th><th>Adresse</th><th>Solde</th></tr></thead>
+        <tbody>
+          <% if (!wallets || wallets.length === 0) { %>
+            <tr><td colspan="4" class="text-center text-muted" style="padding:20px">
+              Aucun portefeuille pour le moment
+            </td></tr>
+          <% } else { %>
+            <% wallets.slice(0,8).forEach((w, i) => { %>
+            <tr>
+              <td><span class="badge <%= i === 0 ? 'badge-gold' : i === 1 ? 'badge-teal' : 'badge-purple' %>">#<%= i+1 %></span></td>
+              <td class="truncate" style="max-width:100px"><%= w.label %></td>
+              <td class="font-mono text-sm text-cyan">
+                <span onclick="copyToClipboard('<%= w.address %>','Adresse')" style="cursor:pointer" title="<%= w.address %>">
+                  <%= w.address.substring(0,14) %>...
+                </span>
+              </td>
+              <td class="font-bold text-green"><%= parseFloat(w.balance).toFixed(2) %> EZK</td>
+            </tr>
+            <% }) %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div>
+  <div class="flex justify-between items-center mb-4">
+    <h2 style="font-size:16px;font-weight:700;">💼 Tous les Portefeuilles (<%= wallets ? wallets.length : 0 %>)</h2>
+    <input type="text" class="form-input" id="wallet-search" placeholder="🔍 Rechercher..." style="max-width:240px;" oninput="filterWallets(this.value)">
+  </div>
+  <div class="wallet-grid" id="wallet-grid">
+    <% if (!wallets || wallets.length === 0) { %>
+      <div class="text-center text-muted" style="padding:40px;grid-column:1/-1;">
+        Aucun portefeuille trouvé. Créez-en un ci-dessus !
+      </div>
+    <% } else { %>
+      <% wallets.forEach(w => { %>
+      <div class="wallet-card" data-address="<%= w.address %>" data-label="<%= w.label %>">
+        <div class="wallet-header">
+          <div class="wallet-icon">💼</div>
+          <div>
+            <div class="wallet-label"><%= w.label %></div>
+            <div class="wallet-address font-mono text-sm text-cyan" onclick="copyToClipboard('<%= w.address %>','Adresse')" style="cursor:pointer;"><%= w.address.substring(0,22) %>...</div>
+          </div>
+        </div>
+        <div class="wallet-balance text-green"><%= parseFloat(w.balance).toFixed(8) %> EZK</div>
+        <div class="wallet-actions">
+          <a href="/transactions?from=<%= w.address %>" class="btn btn-secondary btn-sm">↗ Envoyer</a>
+          <a href="/transactions?address=<%= w.address %>" class="btn btn-ghost btn-sm">📋 Historique</a>
+        </div>
+      </div>
+      <% }) %>
+    <% } %>
+  </div>
+</div>
+
+<script>
+function createWallet() {
+  const label = (document.getElementById('wallet-label').value || '').trim() || 'Mon Portefeuille';
+  const btn   = document.getElementById('create-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Génération...'; }
+
+  fetch('/api/wallet', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ label })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (btn) { btn.disabled = false; btn.textContent = '💰 Générer le Portefeuille'; }
+    if (data.success) {
+      document.getElementById('new-wallet-result').style.display = 'block';
+      document.getElementById('new-wallet-address').textContent  = data.wallet.address;
+      showToast('✅ Portefeuille créé ! Rechargement...', 'success');
+      setTimeout(() => location.reload(), 1800);
+    } else {
+      showToast('❌ ' + data.error, 'error');
+    }
+  })
+  .catch(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '💰 Générer le Portefeuille'; }
+    showToast('❌ Erreur réseau', 'error');
+  });
+}
+
+function filterWallets(q) {
+  const lower = q.toLowerCase();
+  document.querySelectorAll('.wallet-card').forEach(card => {
+    const match = card.dataset.address.toLowerCase().includes(lower)
+               || card.dataset.label.toLowerCase().includes(lower);
+    card.style.display = match ? '' : 'none';
+  });
+}
+</script>
+
+<%- include('partials/footer') %>

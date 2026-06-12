@@ -1,0 +1,340 @@
+<%- include('partials/header') %>
+
+<!-- ─── Mining Rig + Controls ─────────────────────────── -->
+<div class="mine-layout mb-6">
+
+  <!-- Left : Rig visuel -->
+  <div class="card mine-rig-card">
+    <div class="mining-rig">
+      <div class="rig-visual" id="rig-visual">
+        <div class="rig-ring rig-ring-1"></div>
+        <div class="rig-ring rig-ring-2"></div>
+        <div class="rig-ring rig-ring-3"></div>
+        <div class="rig-core" id="rig-core">⬡</div>
+      </div>
+
+      <div id="mining-status-text" class="mine-status-text">
+        Prêt à miner de l'EZK
+      </div>
+
+      <div class="hash-display" id="current-hash">
+        0000000000000000000000000000000000000000000000000000000000000000
+      </div>
+
+      <button class="btn-mine" id="mine-btn" onclick="toggleMining()">
+        ⛏ DÉMARRER LE MINAGE EZK
+      </button>
+      <div class="text-sm text-muted text-center" id="mining-hint">
+        Sélectionnez un portefeuille ci-dessous, puis cliquez pour commencer
+      </div>
+    </div>
+  </div>
+
+  <!-- Right : Portefeuille + Stats + Difficulté -->
+  <div class="mine-side">
+
+    <!-- Portefeuille -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">💼 Portefeuille du Mineur</span>
+        <a href="/wallet" class="btn btn-secondary btn-sm">+ Nouveau</a>
+      </div>
+      <% if (!wallets || wallets.length === 0) { %>
+        <div class="alert alert-warning">⚠ Créez d'abord un portefeuille pour commencer le minage !</div>
+        <a href="/wallet" class="btn btn-primary btn-full">Créer un Portefeuille</a>
+      <% } else { %>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Adresse de récompense</label>
+          <select class="form-select" id="miner-wallet">
+            <% wallets.forEach(w => { %>
+              <option value="<%= w.address %>">
+                <%= w.label %> — <%= parseFloat(w.balance).toFixed(2) %> EZK
+              </option>
+            <% }) %>
+          </select>
+          <div class="text-sm text-muted mt-2">Les récompenses (50 EZK / bloc) sont créditées ici.</div>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Stats live -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">📊 Statistiques en direct</span></div>
+      <div class="mine-stats-grid">
+        <div class="mine-stat">
+          <div class="stat-label">Hashrate</div>
+          <div class="stat-value text-gold mine-stat-val" id="m-hashrate">0 H/s</div>
+        </div>
+        <div class="mine-stat">
+          <div class="stat-label">Nonces testés</div>
+          <div class="stat-value text-blue mine-stat-val" id="m-nonces">0</div>
+        </div>
+        <div class="mine-stat">
+          <div class="stat-label">Difficulté</div>
+          <div class="stat-value text-violet mine-stat-val" id="m-difficulty"><%= difficulty %></div>
+        </div>
+        <div class="mine-stat">
+          <div class="stat-label">Récompense</div>
+          <div class="stat-value text-green mine-stat-val">50 EZK</div>
+        </div>
+        <div class="mine-stat">
+          <div class="stat-label">Temps écoulé</div>
+          <div class="stat-value mine-stat-val" id="m-elapsed">0s</div>
+        </div>
+        <div class="mine-stat">
+          <div class="stat-label">Target</div>
+          <div class="font-mono text-sm text-cyan" id="m-target"><%= '0'.repeat(difficulty) %>...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Difficulté -->
+    <div class="card">
+      <div class="flex justify-between items-center mb-4">
+        <span class="card-title">🎯 Difficulté actuelle</span>
+        <div class="difficulty-dots" id="diff-dots">
+          <% for(let i = 1; i <= 8; i++) { %>
+            <div class="diff-dot<%= i <= difficulty ? ' active' : '' %>"></div>
+          <% } %>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="diff-progress" style="width:<%= (difficulty/8)*100 %>%"></div>
+      </div>
+      <div class="text-sm text-muted mt-4">
+        S'ajuste automatiquement tous les 10 blocs · cible : 60s/bloc
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── Journal de Minage ──────────────────────────────── -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 Journal de Minage</span>
+    <div class="flex gap-2">
+      <span class="badge badge-pending" id="log-count" style="display:none">0</span>
+      <button class="btn btn-secondary btn-sm" onclick="clearLog()">Effacer</button>
+    </div>
+  </div>
+  <div id="mining-log" class="mining-log-area"></div>
+</div>
+
+<style>
+/* ── Mine page layout ── */
+.mine-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 768px) {
+  .mine-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 1100px) {
+  .mine-layout {
+    grid-template-columns: 420px 1fr;
+  }
+}
+
+.mine-rig-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mine-status-text {
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--text-400);
+  text-align: center;
+}
+
+.mine-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mine-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.mine-stat-val {
+  font-size: 16px !important;
+}
+
+@media (min-width: 480px) {
+  .mine-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.mining-log-area {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-400);
+  max-height: 240px;
+  overflow-y: auto;
+  line-height: 1.9;
+  padding: 4px 2px;
+}
+
+.log-line { display: flex; gap: 8px; }
+.log-time { color: var(--text-600); flex-shrink: 0; }
+.log-msg  { word-break: break-all; }
+.log-ok   { color: var(--green-400); }
+.log-err  { color: var(--red-400); }
+.log-info { color: var(--blue-400); }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
+<script>
+// ─── Mining page controller ─────────────────────────────
+let _miningActive = false;
+let _miningTimer  = null;
+let _elapsedSec   = 0;
+let _logCount     = 0;
+
+function addLog(msg, type = '') {
+  const log = document.getElementById('mining-log');
+  if (!log) return;
+  _logCount++;
+  const cnt = document.getElementById('log-count');
+  if (cnt) { cnt.textContent = _logCount; cnt.style.display = 'inline-flex'; }
+
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML =
+    `<span class="log-time">[${new Date().toLocaleTimeString('fr')}]</span>` +
+    `<span class="log-msg ${type ? 'log-' + type : ''}">${msg}</span>`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() {
+  const log = document.getElementById('mining-log');
+  if (log) log.innerHTML = '';
+  _logCount = 0;
+  const cnt = document.getElementById('log-count');
+  if (cnt) cnt.style.display = 'none';
+}
+
+function toggleMining() {
+  _miningActive ? _stopMining() : _startMining();
+}
+
+function _startMining() {
+  const walletSel = document.getElementById('miner-wallet');
+  if (!walletSel) return showToast('⚠ Créez d\'abord un portefeuille !', 'warning');
+  const minerAddress = walletSel.value;
+  if (!minerAddress) return showToast('⚠ Sélectionnez un portefeuille', 'warning');
+
+  _miningActive = true;
+  _elapsedSec   = 0;
+
+  // UI → mining state
+  const btn  = document.getElementById('mine-btn');
+  const core = document.getElementById('rig-core');
+  const vis  = document.getElementById('rig-visual');
+  const txt  = document.getElementById('mining-status-text');
+  const hint = document.getElementById('mining-hint');
+  if (btn)  { btn.textContent = '⏹ ARRÊTER LE MINAGE'; btn.classList.add('mining'); }
+  if (core) { core.style.animation = 'spin 0.8s linear infinite'; }
+  if (vis)  { vis.classList.add('mining'); }
+  if (txt)  { txt.textContent = '⛏ Minage en cours...'; txt.style.color = 'var(--gold-300)'; }
+  if (hint) { hint.textContent = 'Calcul PoW — ne fermez pas la page'; }
+
+  addLog('🚀 Démarrage pour : ' + minerAddress.substring(0, 22) + '...', 'info');
+
+  _miningTimer = setInterval(() => {
+    _elapsedSec++;
+    const el = document.getElementById('m-elapsed');
+    if (el) el.textContent = _elapsedSec + 's';
+  }, 1000);
+
+  fetch('/api/chain?per_page=1')
+    .then(r => r.json())
+    .then(chainData => {
+      if (!_miningActive) return; // stopped before response
+      const latest   = chainData.blocks && chainData.blocks[0];
+      const prevHash = latest ? latest.hash : '0'.repeat(64);
+      const idx      = latest ? latest.block_index + 1 : 1;
+      const diff     = parseInt(document.getElementById('m-difficulty').textContent) || 4;
+
+      addLog('📦 Bloc #' + idx + ' | Difficulté : ' + diff + ' | Prev : ' + prevHash.substring(0, 14) + '...', 'info');
+
+      window.startMining(prevHash, idx, minerAddress, diff,
+        // onProgress
+        (hashrate, nonce, hash) => {
+          const hr = document.getElementById('m-hashrate');
+          const nc = document.getElementById('m-nonces');
+          const ch = document.getElementById('current-hash');
+          if (hr) hr.textContent = hashrate >= 1000
+            ? (hashrate / 1000).toFixed(1) + ' KH/s'
+            : hashrate + ' H/s';
+          if (nc) nc.textContent = nonce.toLocaleString('fr');
+          if (ch) { ch.textContent = hash; ch.classList.add('active'); }
+        },
+        // onComplete
+        (result) => {
+          _miningActive = false;
+          clearInterval(_miningTimer);
+          _resetUI();
+          if (result) {
+            addLog('✅ Bloc #' + result.block.block_index + ' miné ! +' + parseFloat(result.reward).toFixed(2) + ' EZK · ' + result.hashrate + ' H/s', 'ok');
+            addLog('   Hash : ' + result.block.hash, 'ok');
+            showToast('✅ Bloc #' + result.block.block_index + ' miné ! +' + parseFloat(result.reward).toFixed(2) + ' EZK', 'success', 7000);
+          }
+        },
+        // onError
+        (err) => {
+          _miningActive = false;
+          clearInterval(_miningTimer);
+          _resetUI();
+          addLog('❌ ' + err, 'err');
+          showToast('❌ ' + err, 'error');
+        }
+      );
+    })
+    .catch(err => {
+      _miningActive = false;
+      clearInterval(_miningTimer);
+      _resetUI();
+      addLog('❌ Réseau : ' + err.message, 'err');
+      showToast('❌ Erreur réseau', 'error');
+    });
+}
+
+function _stopMining() {
+  _miningActive = false;
+  clearInterval(_miningTimer);
+  window.stopMining && window.stopMining();
+  _resetUI();
+  addLog('⏹ Minage arrêté par l\'utilisateur.');
+}
+
+function _resetUI() {
+  const btn  = document.getElementById('mine-btn');
+  const core = document.getElementById('rig-core');
+  const vis  = document.getElementById('rig-visual');
+  const txt  = document.getElementById('mining-status-text');
+  const hint = document.getElementById('mining-hint');
+  const ch   = document.getElementById('current-hash');
+  if (btn)  { btn.textContent = '⛏ DÉMARRER LE MINAGE EZK'; btn.classList.remove('mining'); btn.style.background = ''; }
+  if (core) { core.style.animation = ''; }
+  if (vis)  { vis.classList.remove('mining'); }
+  if (txt)  { txt.textContent = "Prêt à miner de l'EZK"; txt.style.color = ''; }
+  if (hint) { hint.textContent = 'Sélectionnez un portefeuille ci-dessous, puis cliquez pour commencer'; }
+  if (ch)   { ch.classList.remove('active'); }
+}
+</script>
+
+<%- include('partials/footer') %>

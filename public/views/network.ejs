@@ -1,0 +1,148 @@
+<%- include('partials/header') %>
+
+<div class="stat-grid mb-6">
+  <div class="stat-card" style="--accent-color:var(--accent-cyan);--icon-bg:rgba(0,229,255,0.12)">
+    <div class="stat-icon">⚡</div>
+    <div class="stat-info">
+      <div class="stat-label">Puissance Moyenne</div>
+      <div class="stat-value" id="net-hashrate">—</div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:var(--accent-violet);--icon-bg:rgba(168,85,247,0.12)">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-info">
+      <div class="stat-label">Difficulté Actuelle</div>
+      <div class="stat-value" id="net-difficulty">—</div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:var(--accent-green);--icon-bg:rgba(16,251,138,0.12)">
+    <div class="stat-icon">💎</div>
+    <div class="stat-info">
+      <div class="stat-label">Offre Totale</div>
+      <div class="stat-value" id="net-supply">—</div>
+      <div class="stat-change" id="net-supply-pct"></div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:var(--accent-yellow);--icon-bg:rgba(251,191,36,0.12)">
+    <div class="stat-icon">🏆</div>
+    <div class="stat-info">
+      <div class="stat-label">Récompense de Bloc</div>
+      <div class="stat-value text-yellow">50 EZK</div>
+      <div class="stat-change">Halving à 210 000 blocs</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2 mb-6">
+  <div class="card">
+    <div class="card-header"><span class="card-title">⚡ Historique du Hashrate</span></div>
+    <div class="chart-wrapper"><canvas id="net-hashrate-chart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">💎 Répartition de l'Offre</span></div>
+    <div class="chart-wrapper"><canvas id="supply-chart"></canvas></div>
+  </div>
+</div>
+
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">🏆 Top Mineurs</span>
+    <span class="badge badge-gold">Par blocs minés</span>
+  </div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead><tr><th>#</th><th>Adresse</th><th>Blocs Minés</th><th>Total Gagné</th></tr></thead>
+      <tbody id="top-miners-body">
+        <tr><td colspan="4" class="text-center text-muted" style="padding:20px">Chargement...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📊 Résumé Réseau</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;">
+    <div><div class="stat-label">Total Blocs</div><div class="stat-value" id="sum-blocks">—</div></div>
+    <div><div class="stat-label">Total Transactions</div><div class="stat-value" id="sum-txs">—</div></div>
+    <div><div class="stat-label">Portefeuilles</div><div class="stat-value" id="sum-wallets">—</div></div>
+    <div><div class="stat-label">Mempool</div><div class="stat-value" id="sum-mempool">—</div></div>
+    <div><div class="stat-label">Temps Cible / Bloc</div><div class="stat-value">60s</div></div>
+    <div><div class="stat-label">Max Supply</div><div class="stat-value">21M EZK</div></div>
+  </div>
+</div>
+
+<script>
+let hashrateChart, supplyChart;
+
+async function loadNetwork() {
+  const res  = await fetch('/api/stats');
+  const data = await res.json();
+  if (!data.success) return;
+
+  const { stats, hashrate_history, avg_hashrate, top_miners } = data;
+
+  document.getElementById('net-hashrate').textContent  = formatHashrate(avg_hashrate);
+  document.getElementById('net-difficulty').textContent = stats.difficulty || '—';
+  document.getElementById('net-supply').textContent     = parseFloat(stats.total_supply || 0).toFixed(2) + ' EZK';
+  document.getElementById('net-supply-pct').textContent = (stats.circulation_pct || 0) + '% de 21M';
+  document.getElementById('sum-blocks').textContent    = stats.total_blocks || 0;
+  document.getElementById('sum-txs').textContent       = stats.total_transactions || 0;
+  document.getElementById('sum-wallets').textContent   = stats.total_wallets || 0;
+  document.getElementById('sum-mempool').textContent   = stats.mempool_count || 0;
+
+  // Hashrate chart
+  const labels = hashrate_history.map(h => '#' + h.block_index);
+  const values = hashrate_history.map(h => parseFloat(h.hashrate));
+  if (hashrateChart) hashrateChart.destroy();
+  hashrateChart = new Chart(document.getElementById('net-hashrate-chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{ label: 'Hashrate (H/s)', data: values, borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.08)', tension: 0.4, fill: true }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888' } }, y: { ticks: { color: '#888' } } } }
+  });
+
+  // Supply donut
+  const mined    = parseFloat(stats.total_supply || 0);
+  const remaining = 21000000 - mined;
+  if (supplyChart) supplyChart.destroy();
+  supplyChart = new Chart(document.getElementById('supply-chart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Miné', 'Restant'],
+      datasets: [{ data: [mined, remaining], backgroundColor: ['#10FB8A', '#1a1a2e'], borderColor: ['#10FB8A', '#333'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#ccc' } } } }
+  });
+
+  // Top miners
+  const tbody = document.getElementById('top-miners-body');
+  if (!top_miners || !top_miners.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted" style="padding:20px">Aucun mineur pour le moment</td></tr>';
+    return;
+  }
+  tbody.innerHTML = top_miners.map((m, i) => `
+    <tr>
+      <td><span class="badge ${i === 0 ? 'badge-gold' : 'badge-purple'}">#${i+1}</span></td>
+      <td class="font-mono text-sm text-cyan">${m.miner_address.substring(0,20)}...</td>
+      <td class="font-bold">${m.blocks_mined}</td>
+      <td class="text-green font-bold">${parseFloat(m.total_earned).toFixed(2)} EZK</td>
+    </tr>
+  `).join('');
+}
+
+function formatHashrate(h) {
+  if (h >= 1e9)  return (h/1e9).toFixed(2) + ' GH/s';
+  if (h >= 1e6)  return (h/1e6).toFixed(2) + ' MH/s';
+  if (h >= 1e3)  return (h/1e3).toFixed(2) + ' KH/s';
+  return (h||0).toFixed(2) + ' H/s';
+}
+
+document.addEventListener('DOMContentLoaded', loadNetwork);
+setInterval(loadNetwork, 15000);
+</script>
+
+<%- include('partials/footer') %>

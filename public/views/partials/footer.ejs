@@ -1,0 +1,67 @@
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /app-layout -->
+
+<div id="toast-container"></div>
+
+<% if (isDev) { %>
+<div id="dev-badge" style="position:fixed;bottom:12px;left:12px;z-index:9998;background:rgba(124,77,255,0.15);border:1px solid rgba(124,77,255,0.35);color:#9b6dff;font-size:10px;font-family:'JetBrains Mono',monospace;padding:4px 10px;border-radius:50px;letter-spacing:1px;pointer-events:none;">
+  DEV MODE
+</div>
+<% } %>
+
+<script src="/assets/js/app.js"></script>
+<script src="/assets/js/blockchain.js"></script>
+<script src="/assets/js/miner.js"></script>
+
+<script>
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const btn     = document.getElementById('hamburger-btn');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('open');
+  btn.classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+  document.getElementById('hamburger-btn').classList.remove('open');
+}
+
+(function() {
+  let basePrice = 0.0042 + Math.random() * 0.002;
+  let lastChange = 0;
+  function updateTicker() {
+    const delta = (Math.random() - 0.48) * 0.0003;
+    basePrice  += delta;
+    basePrice   = Math.max(0.001, basePrice);
+    lastChange += delta;
+    const pct   = ((lastChange / (basePrice - lastChange)) * 100);
+    const priceEl  = document.getElementById('ticker-price');
+    const changeEl = document.getElementById('ticker-change');
+    if (priceEl)  priceEl.textContent  = '$' + basePrice.toFixed(6);
+    if (changeEl) {
+      changeEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      changeEl.className   = 'ticker-change ' + (pct >= 0 ? 'up' : 'down');
+    }
+  }
+  updateTicker();
+  setInterval(updateTicker, 3500);
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const cards = document.querySelectorAll('.stat-card, .card');
+  cards.forEach((card, i) => {
+    card.style.opacity   = '0';
+    card.style.transform = 'translateY(24px)';
+    setTimeout(() => {
+      card.style.transition = 'opacity 0.45s ease, transform 0.45s ease';
+      card.style.opacity    = '1';
+      card.style.transform  = 'translateY(0)';
+    }, 60 + i * 55);
+  });
+});
+</script>
+</body>
+</html>

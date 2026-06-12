@@ -1,0 +1,147 @@
+<%- include('partials/header') %>
+
+<div class="hero-banner mb-6">
+  <div class="hero-content">
+    <div class="hero-badge">⬡ BLOCKCHAIN EN DIRECT</div>
+    <div class="hero-title">Bienvenue sur <span class="hero-brand">EZEKIZO</span></div>
+    <div class="hero-sub">Minez, échangez et explorez la blockchain EZK en temps réel · Proof-of-Work · 21 000 000 EZK max</div>
+  </div>
+  <div class="hero-actions">
+    <a href="/mine" class="btn btn-primary btn-lg">⛏ Lancer le Minage</a>
+    <a href="/explorer" class="btn btn-secondary btn-lg">🔎 Explorer la Chaîne</a>
+  </div>
+</div>
+
+<div class="stat-grid mb-6">
+  <div class="stat-card" style="--accent-color:linear-gradient(90deg,var(--gold-500),var(--gold-300));--icon-bg:rgba(232,169,0,0.10);--icon-border:rgba(232,169,0,0.18);">
+    <div class="stat-icon">🔗</div>
+    <div class="stat-info">
+      <div class="stat-label">Blocs Minés</div>
+      <div class="stat-value" id="stat-blocks">—</div>
+      <div class="stat-change up">Hauteur de la blockchain</div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:linear-gradient(90deg,var(--gold-500),var(--gold-300));--icon-bg:rgba(232,169,0,0.10);--icon-border:rgba(232,169,0,0.18);">
+    <div class="stat-icon">💎</div>
+    <div class="stat-info">
+      <div class="stat-label">Offre Totale (EZK)</div>
+      <div class="stat-value" id="stat-supply">—</div>
+      <div class="stat-change"><span id="stat-circulation">0</span>% de 21M max</div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:linear-gradient(90deg,var(--blue-500),var(--blue-400));--icon-bg:rgba(59,158,255,0.10);--icon-border:rgba(59,158,255,0.18);">
+    <div class="stat-icon">⚡</div>
+    <div class="stat-info">
+      <div class="stat-label">Puissance (Hashrate)</div>
+      <div class="stat-value" id="stat-hashrate">—</div>
+      <div class="stat-change">Moy. sur les 20 derniers blocs</div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:linear-gradient(90deg,var(--violet-500),var(--violet-400));--icon-bg:rgba(155,109,255,0.10);--icon-border:rgba(155,109,255,0.18);">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-info">
+      <div class="stat-label">Difficulté</div>
+      <div class="stat-value" id="stat-difficulty">—</div>
+      <div class="stat-change">Zéros de tête requis</div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:linear-gradient(90deg,var(--teal-500),var(--teal-400));--icon-bg:rgba(0,212,170,0.10);--icon-border:rgba(0,212,170,0.18);">
+    <div class="stat-icon">💼</div>
+    <div class="stat-info">
+      <div class="stat-label">Portefeuilles</div>
+      <div class="stat-value" id="stat-wallets">—</div>
+      <div class="stat-change">Total d'adresses</div>
+    </div>
+  </div>
+  <div class="stat-card" style="--accent-color:linear-gradient(90deg,var(--blue-500),var(--teal-400));--icon-bg:rgba(59,158,255,0.10);--icon-border:rgba(59,158,255,0.18);">
+    <div class="stat-icon">↔</div>
+    <div class="stat-info">
+      <div class="stat-label">Transactions</div>
+      <div class="stat-value" id="stat-transactions">—</div>
+      <div class="stat-change up">Confirmées on-chain</div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">💎 Progression de l'offre EZK</span>
+    <span class="text-sm text-muted">Max : 21 000 000 EZK</span>
+  </div>
+  <div class="flex items-center gap-3 mb-4">
+    <div style="flex:1">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="supply-progress" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="font-mono text-sm text-gold"><span id="stat-circulation-2">0</span>%</div>
+  </div>
+  <div class="flex justify-between text-sm text-muted">
+    <span>⛏ Miné : <span class="text-green font-bold" id="stat-supply-2">0</span> EZK</span>
+    <span>🔒 Récompense : <strong class="text-gold">50 EZK</strong> · divisée par 2 tous les 210 000 blocs</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">⚡ Historique du Hashrate</span>
+      <span class="text-sm text-muted">Derniers 20 blocs</span>
+    </div>
+    <div class="chart-wrapper">
+      <canvas id="hashrate-chart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🔎 Blocs Récents</span>
+      <a href="/explorer" class="btn btn-secondary btn-sm">Voir Tout →</a>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr><th>Hauteur</th><th>Hash</th><th>Txs</th><th>Récompense</th><th>Âge</th></tr>
+        </thead>
+        <tbody id="recent-blocks-list">
+          <tr><td colspan="5" class="text-center text-muted" style="padding:20px">Chargement...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 dashboard-cta">
+  <a href="/mine" class="btn btn-primary btn-lg">⛏ Lancer le Minage EZK</a>
+  <a href="/wallet" class="btn btn-secondary btn-lg">💼 Gérer les Portefeuilles</a>
+  <a href="/explorer" class="btn btn-secondary btn-lg">🔎 Explorateur de Blocs</a>
+  <a href="/network" class="btn btn-ghost btn-lg">📡 Statistiques Réseau</a>
+</div>
+
+<style>
+.dashboard-cta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dashboard-cta .btn {
+  flex: 1 1 140px;
+  text-align: center;
+  justify-content: center;
+}
+@media (min-width: 600px) {
+  .dashboard-cta .btn { flex: 0 1 auto; }
+}
+</style>
+
+<script>
+setInterval(() => {
+  const s  = document.getElementById('stat-supply');
+  const s2 = document.getElementById('stat-supply-2');
+  const c  = document.getElementById('stat-circulation');
+  const c2 = document.getElementById('stat-circulation-2');
+  if (s && s2) s2.textContent = s.textContent;
+  if (c && c2) c2.textContent = (c.textContent || '').replace('%', '');
+}, 1000);
+</script>
+
+<%- include('partials/footer') %>

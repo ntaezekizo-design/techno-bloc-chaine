@@ -1,0 +1,150 @@
+<%- include('partials/header') %>
+
+<div class="card mb-6">
+  <div class="flex gap-3 items-center">
+    <input type="text" class="form-input" id="block-search" placeholder="🔍 Rechercher par index ou hash..." style="flex:1;">
+    <button class="btn btn-primary" onclick="searchBlock()">Rechercher</button>
+    <button class="btn btn-secondary" onclick="loadChain(1)">🔄 Actualiser</button>
+  </div>
+</div>
+
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">🔗 Visualisation de la Blockchain</span>
+    <div class="flex gap-2 items-center">
+      <span class="badge badge-success" id="chain-valid-badge">✓ Chaîne Valide</span>
+      <span class="text-sm text-muted" id="chain-total">0 blocs</span>
+    </div>
+  </div>
+  <div class="chain-container" id="chain-container">
+    <div class="text-center text-muted" style="padding:40px;width:100%">Chargement de la chaîne...</div>
+  </div>
+</div>
+
+<div class="block-detail" id="block-detail-panel"></div>
+
+<div class="card mt-6">
+  <div class="card-header">
+    <span class="card-title">📦 Tous les Blocs</span>
+    <div class="flex gap-2">
+      <button class="btn btn-secondary btn-sm" id="prev-page" onclick="changePage(-1)" disabled>← Précédent</button>
+      <span class="text-sm text-muted" id="page-info" style="padding:6px 8px;">Page 1</span>
+      <button class="btn btn-secondary btn-sm" id="next-page" onclick="changePage(1)">Suivant →</button>
+    </div>
+  </div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr><th>Hauteur</th><th>Hash</th><th>Hash Précédent</th><th>Txs</th><th>Nonce</th><th>Difficulté</th><th>Récompense</th><th>Mineur</th><th>Heure</th></tr>
+      </thead>
+      <tbody id="blocks-table-body">
+        <tr><td colspan="9" class="text-center text-muted" style="padding:20px">Chargement...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let currentPage = 1;
+const perPage   = 10;
+
+async function loadChain(page = 1) {
+  currentPage = page;
+  try {
+    const res  = await fetch(`/api/chain?page=${page}&per_page=${perPage}`);
+    const data = await res.json();
+    if (!data.success) return;
+
+    document.getElementById('chain-total').textContent = data.total + ' blocs';
+    document.getElementById('chain-valid-badge').textContent = data.valid_chain ? '✓ Chaîne Valide' : '✗ Chaîne Invalide';
+    document.getElementById('chain-valid-badge').className = 'badge ' + (data.valid_chain ? 'badge-success' : 'badge-danger');
+
+    // Chain visualization (latest 5)
+    const recent = data.blocks.slice(0, 5);
+    const container = document.getElementById('chain-container');
+    container.innerHTML = recent.map((b, i) => `
+      <div class="chain-block${b.block_index === 0 ? ' genesis' : ''}" onclick="showBlockDetail('${b.hash}')">
+        <div class="chain-block-index">#${b.block_index}</div>
+        <div class="chain-block-hash font-mono" style="font-size:10px;">${b.hash.substring(0,12)}...</div>
+        <div class="chain-block-txs text-sm text-muted">${b.tx_count} tx</div>
+      </div>
+      ${i < recent.length - 1 ? '<div class="chain-arrow">→</div>' : ''}
+    `).join('');
+
+    // Table
+    const tbody = document.getElementById('blocks-table-body');
+    tbody.innerHTML = data.blocks.map(b => `
+      <tr style="cursor:pointer;" onclick="showBlockDetail('${b.hash}')">
+        <td><span class="badge badge-gold">#${b.block_index}</span></td>
+        <td class="font-mono text-sm text-cyan">${b.hash.substring(0,14)}...</td>
+        <td class="font-mono text-sm text-muted">${b.previous_hash.substring(0,14)}...</td>
+        <td>${b.tx_count}</td>
+        <td class="font-mono text-sm">${b.nonce}</td>
+        <td><span class="badge badge-purple">${b.difficulty}</span></td>
+        <td class="text-green">${parseFloat(b.reward).toFixed(2)} EZK</td>
+        <td class="font-mono text-sm">${b.miner_address === 'GENESIS' ? '<span class="badge badge-cyan">GENESIS</span>' : b.miner_address.substring(0,12)+'...'}</td>
+        <td class="text-sm text-muted">${new Date(b.created_at).toLocaleString('fr')}</td>
+      </tr>
+    `).join('');
+
+    // Pagination
+    const totalPages = Math.ceil(data.total / perPage);
+    document.getElementById('page-info').textContent = `Page ${page} / ${totalPages}`;
+    document.getElementById('prev-page').disabled = page <= 1;
+    document.getElementById('next-page').disabled = page >= totalPages;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function showBlockDetail(query) {
+  const res  = await fetch(`/api/chain?block=${query}`);
+  const data = await res.json();
+  if (!data.success) return;
+  const b = data.block;
+  const panel = document.getElementById('block-detail-panel');
+  panel.innerHTML = `
+    <div class="card" style="border:1px solid var(--gold-500);">
+      <div class="card-header">
+        <span class="card-title">📦 Bloc #${b.block_index}</span>
+        <button onclick="this.closest('.card').remove()" class="btn btn-ghost btn-sm">✕ Fermer</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div><div class="stat-label">Hash</div><div class="font-mono text-sm text-cyan" style="word-break:break-all;">${b.hash}</div></div>
+        <div><div class="stat-label">Hash Précédent</div><div class="font-mono text-sm text-muted" style="word-break:break-all;">${b.previous_hash}</div></div>
+        <div><div class="stat-label">Mineur</div><div class="font-mono text-sm">${b.miner_address}</div></div>
+        <div><div class="stat-label">Nonce</div><div class="font-mono">${b.nonce}</div></div>
+        <div><div class="stat-label">Difficulté</div><div>${b.difficulty}</div></div>
+        <div><div class="stat-label">Récompense</div><div class="text-green font-bold">${parseFloat(b.reward).toFixed(4)} EZK</div></div>
+      </div>
+      ${b.transactions && b.transactions.length ? `
+        <div class="card-title mb-4">Transactions (${b.transactions.length})</div>
+        <table class="data-table">
+          <thead><tr><th>TXID</th><th>De</th><th>Vers</th><th>Montant</th></tr></thead>
+          <tbody>${b.transactions.map(tx => `
+            <tr>
+              <td class="font-mono text-sm text-cyan">${tx.txid.substring(0,16)}...</td>
+              <td class="font-mono text-sm">${tx.from_address === 'COINBASE' ? '<span class="badge badge-gold">COINBASE</span>' : tx.from_address.substring(0,12)+'...'}</td>
+              <td class="font-mono text-sm">${tx.to_address.substring(0,12)}...</td>
+              <td class="text-green">${parseFloat(tx.amount).toFixed(4)} EZK</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="text-muted text-sm">Aucune transaction dans ce bloc</div>'}
+    </div>`;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function searchBlock() {
+  const q = document.getElementById('block-search').value.trim();
+  if (q) showBlockDetail(q);
+}
+
+function changePage(dir) {
+  loadChain(currentPage + dir);
+}
+
+document.addEventListener('DOMContentLoaded', () => loadChain(1));
+</script>
+
+<%- include('partials/footer') %>

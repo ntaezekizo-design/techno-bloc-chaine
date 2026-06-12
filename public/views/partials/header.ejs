@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= pageTitle %> — EZEKIZO</title>
+  <meta name="description" content="EZEKIZO — Minez, Tradez et Explorez EZK sur la blockchain de nouvelle génération.">
+  <!-- Mobile first viewport -->
+  <meta name="theme-color" content="#04060f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app-layout">
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <a class="sidebar-logo" href="/">
+      <div class="logo-icon">⭡</div>
+      <div class="logo-text-wrap">
+        <div class="logo-text">EZEKIZO</div>
+        <div class="logo-tag">EZK · BLOCKCHAIN</div>
+      </div>
+    </a>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+      <a class="nav-item<%= pageActive === 'index'        ? ' active' : '' %>" href="/"><span class="nav-icon">📊</span><span class="nav-label">Tableau de bord</span></a>
+      <a class="nav-item<%= pageActive === 'mine'         ? ' active' : '' %>" href="/mine"><span class="nav-icon">⛏</span><span class="nav-label">Minage</span></a>
+      <a class="nav-item<%= pageActive === 'wallet'       ? ' active' : '' %>" href="/wallet"><span class="nav-icon">💼</span><span class="nav-label">Portefeuilles</span></a>
+      <a class="nav-item<%= pageActive === 'transactions' ? ' active' : '' %>" href="/transactions"><span class="nav-icon">↔</span><span class="nav-label">Transactions</span></a>
+      <div class="nav-section-title">Explorateur</div>
+      <a class="nav-item<%= pageActive === 'explorer'     ? ' active' : '' %>" href="/explorer"><span class="nav-icon">🔎</span><span class="nav-label">Explorateur de Blocs</span></a>
+      <a class="nav-item<%= pageActive === 'network'      ? ' active' : '' %>" href="/network"><span class="nav-icon">📡</span><span class="nav-label">Statistiques Réseau</span></a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="network-status">
+        <div class="status-dot"></div>
+        <div>
+          <div class="status-text">Réseau Actif</div>
+          <div class="status-sub" id="network-blocks">Synchronisation...</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+        <div>
+          <h1 class="page-title"><%= pageTitle %></h1>
+          <% if (pageSubtitle) { %><div class="page-subtitle"><%= pageSubtitle %></div><% } %>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="ezk-ticker" id="ezk-ticker">
+          <span class="ticker-label">EZK</span>
+          <span class="ticker-price" id="ticker-price">0.00 $</span>
+          <span class="ticker-change" id="ticker-change">+0.00%</span>
+        </div>
+        <div class="badge badge-pending" id="header-mempool-badge">Mempool: <span id="stat-mempool">0</span></div>
+        <div class="badge badge-gold" id="header-blocks-badge">EZK · Bloc <span id="stat-blocks">?</span></div>
+      </div>
+    </div>
+    <div class="page-content">
