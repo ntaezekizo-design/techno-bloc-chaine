@@ -31,9 +31,31 @@ router.post('/login', async (req, res) => {
         error: 'Identifiants incorrects. Réessayez.',
       });
     }
-    req.session.userId   = user.id;
-    req.session.username = user.username;
-    res.redirect('/');
+    // Régénérer la session pour éviter la fixation de session
+    req.session.regenerate((err) => {
+      if (err) {
+        console.error('[/login] session.regenerate error:', err);
+        return res.render('login', {
+          pageTitle: 'Connexion', pageSubtitle: '', pageActive: 'login',
+          error: 'Erreur de session. Réessayez.',
+        });
+      }
+      req.session.userId   = user.id;
+      req.session.username = user.username;
+      // Sauvegarder explicitement avant le redirect
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('[/login] session.save error:', saveErr);
+          return res.render('login', {
+            pageTitle: 'Connexion', pageSubtitle: '', pageActive: 'login',
+            error: 'Erreur de session. Réessayez.',
+          });
+        }
+        const returnTo = req.session.returnTo || '/';
+        delete req.session.returnTo;
+        res.redirect(returnTo);
+      });
+    });
   } catch (e) {
     console.error('[/login POST]', e.message);
     res.render('login', {
@@ -88,9 +110,26 @@ router.post('/register', async (req, res) => {
 
   try {
     const user = await User.create(username.trim(), email.trim().toLowerCase(), password);
-    req.session.userId   = user.id;
-    req.session.username = user.username;
-    res.redirect('/');
+    // Régénérer + sauvegarder explicitement avant le redirect
+    req.session.regenerate((err) => {
+      if (err) {
+        return res.render('register', {
+          pageTitle: 'Créer un compte', pageSubtitle: '', pageActive: 'register',
+          error: 'Erreur de session. Réessayez.', values,
+        });
+      }
+      req.session.userId   = user.id;
+      req.session.username = user.username;
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          return res.render('register', {
+            pageTitle: 'Créer un compte', pageSubtitle: '', pageActive: 'register',
+            error: 'Erreur de session. Réessayez.', values,
+          });
+        }
+        res.redirect('/');
+      });
+    });
   } catch (e) {
     res.render('register', {
       pageTitle: 'Créer un compte', pageSubtitle: '', pageActive: 'register',
