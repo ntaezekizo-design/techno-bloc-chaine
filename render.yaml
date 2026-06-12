@@ -1,0 +1,28 @@
+services:
+  # ─── Application Web Node.js ────────────────────────
+  - type: web
+    name: ezekizo-blockchain
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ezekizo-db
+          property: connectionString
+
+databases:
+  # ─── Base de données PostgreSQL (plan gratuit Render) ─
+  - name: ezekizo-db
+    databaseName: cryptomine
+    user: ezekizo
+    plan: free
+    region: frankfurt

@@ -1,103 +1,108 @@
--- EZEKIZO CryptoMine — Database Schema
--- Run this on your MySQL database (PlanetScale, Railway, etc.)
+-- ============================================================
+--  EZEKIZO CryptoMine — Schéma universel (MySQL + PostgreSQL)
+--  • MySQL local   : mysql -u root -p cryptomine < schema.sql
+--  • PostgreSQL    : psql $DATABASE_URL < schema.sql
+-- ============================================================
 
-SET NAMES utf8mb4;
+-- ─── blockchain_stats ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS blockchain_stats (
+  id                  INT             NOT NULL DEFAULT 1,
+  total_supply        DECIMAL(20,8)   NOT NULL DEFAULT 0,
+  difficulty          INT             NOT NULL DEFAULT 4,
+  block_reward        DECIMAL(20,8)   NOT NULL DEFAULT 50,
+  total_blocks        INT             NOT NULL DEFAULT 0,
+  total_transactions  INT             NOT NULL DEFAULT 0,
+  last_block_time     TIMESTAMP       NULL,
+  updated_at          TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
 
-CREATE TABLE IF NOT EXISTS `blockchain_stats` (
-  `id` int NOT NULL DEFAULT 1,
-  `total_supply` decimal(20,8) DEFAULT '0.00000000',
-  `difficulty` int DEFAULT 4,
-  `block_reward` decimal(20,8) DEFAULT '50.00000000',
-  `total_blocks` int DEFAULT 0,
-  `total_transactions` int DEFAULT 0,
-  `last_block_time` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT INTO blockchain_stats (id, total_supply, difficulty, block_reward, total_blocks, total_transactions)
+VALUES (1, 0, 4, 50, 0, 0)
+ON CONFLICT (id) DO NOTHING;
 
-INSERT IGNORE INTO `blockchain_stats` (`id`, `total_supply`, `difficulty`, `block_reward`, `total_blocks`, `total_transactions`)
-VALUES (1, 0, 4, 50, 0, 0);
+-- ─── blocks ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS blocks (
+  id              SERIAL          PRIMARY KEY,
+  block_index     INT             NOT NULL UNIQUE,
+  hash            VARCHAR(64)     NOT NULL,
+  previous_hash   VARCHAR(64)     NOT NULL,
+  merkle_root     VARCHAR(64)     NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000',
+  nonce           BIGINT          NOT NULL DEFAULT 0,
+  difficulty      INT             NOT NULL DEFAULT 4,
+  miner_address   VARCHAR(64)     NOT NULL DEFAULT 'GENESIS',
+  reward          DECIMAL(20,8)   NOT NULL DEFAULT 0,
+  tx_count        INT             NOT NULL DEFAULT 0,
+  created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-CREATE TABLE IF NOT EXISTS `blocks` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `block_index` int NOT NULL,
-  `hash` varchar(64) NOT NULL,
-  `previous_hash` varchar(64) NOT NULL,
-  `merkle_root` varchar(64) DEFAULT '0',
-  `nonce` bigint UNSIGNED DEFAULT 0,
-  `difficulty` int DEFAULT 4,
-  `miner_address` varchar(64) DEFAULT 'GENESIS',
-  `reward` decimal(20,8) DEFAULT '0.00000000',
-  `tx_count` int DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `block_index` (`block_index`),
-  KEY `idx_hash` (`hash`),
-  KEY `idx_block_index` (`block_index`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX IF NOT EXISTS idx_blocks_hash        ON blocks(hash);
+CREATE INDEX IF NOT EXISTS idx_blocks_block_index ON blocks(block_index);
 
--- Genesis block
-INSERT IGNORE INTO `blocks` (`block_index`, `hash`, `previous_hash`, `merkle_root`, `nonce`, `difficulty`, `miner_address`, `reward`, `tx_count`)
-VALUES (0, '0000000000000000000000000000000000000000000000000000000000000000',
-           '0000000000000000000000000000000000000000000000000000000000000000',
-           '0000000000000000000000000000000000000000000000000000000000000000',
-        0, 4, 'GENESIS', 0, 0);
+-- Bloc Genesis
+INSERT INTO blocks (block_index, hash, previous_hash, merkle_root, nonce, difficulty, miner_address, reward, tx_count)
+VALUES (
+  0,
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  0, 4, 'GENESIS', 0, 0
+)
+ON CONFLICT (block_index) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS `wallets` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `address` varchar(64) NOT NULL,
-  `public_key` text NOT NULL,
-  `label` varchar(100) DEFAULT 'My Wallet',
-  `balance` decimal(20,8) DEFAULT '0.00000000',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `address` (`address`),
-  KEY `idx_address` (`address`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ─── wallets ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS wallets (
+  id          SERIAL        PRIMARY KEY,
+  address     VARCHAR(64)   NOT NULL UNIQUE,
+  public_key  TEXT          NOT NULL,
+  label       VARCHAR(100)  NOT NULL DEFAULT 'My Wallet',
+  balance     DECIMAL(20,8) NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-CREATE TABLE IF NOT EXISTS `transactions` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `txid` varchar(64) NOT NULL,
-  `from_address` varchar(64) DEFAULT 'COINBASE',
-  `to_address` varchar(64) NOT NULL,
-  `amount` decimal(20,8) NOT NULL,
-  `fee` decimal(20,8) DEFAULT '0.00000000',
-  `block_id` int DEFAULT NULL,
-  `status` enum('pending','confirmed','failed') DEFAULT 'pending',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `confirmed_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `txid` (`txid`),
-  KEY `idx_txid` (`txid`),
-  KEY `idx_from` (`from_address`),
-  KEY `idx_to` (`to_address`),
-  KEY `idx_status` (`status`),
-  KEY `block_id` (`block_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX IF NOT EXISTS idx_wallets_address ON wallets(address);
 
-CREATE TABLE IF NOT EXISTS `mempool` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `txid` varchar(64) NOT NULL,
-  `from_address` varchar(64) NOT NULL,
-  `to_address` varchar(64) NOT NULL,
-  `amount` decimal(20,8) NOT NULL,
-  `fee` decimal(20,8) DEFAULT '0.00100000',
-  `data` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `txid` (`txid`),
-  KEY `idx_fee` (`fee`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ─── transactions ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS transactions (
+  id            SERIAL        PRIMARY KEY,
+  txid          VARCHAR(64)   NOT NULL UNIQUE,
+  from_address  VARCHAR(64)   NOT NULL DEFAULT 'COINBASE',
+  to_address    VARCHAR(64)   NOT NULL,
+  amount        DECIMAL(20,8) NOT NULL,
+  fee           DECIMAL(20,8) NOT NULL DEFAULT 0,
+  block_id      INT           NULL,
+  status        VARCHAR(10)   NOT NULL DEFAULT 'pending',
+  created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  confirmed_at  TIMESTAMP     NULL
+);
 
-CREATE TABLE IF NOT EXISTS `mining_sessions` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `miner_address` varchar(64) NOT NULL,
-  `block_id` int DEFAULT NULL,
-  `hashes_computed` bigint DEFAULT 0,
-  `duration_ms` int DEFAULT 0,
-  `hashrate` decimal(20,2) DEFAULT '0.00',
-  `success` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `block_id` (`block_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX IF NOT EXISTS idx_tx_txid   ON transactions(txid);
+CREATE INDEX IF NOT EXISTS idx_tx_from   ON transactions(from_address);
+CREATE INDEX IF NOT EXISTS idx_tx_to     ON transactions(to_address);
+CREATE INDEX IF NOT EXISTS idx_tx_status ON transactions(status);
+
+-- ─── mempool ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS mempool (
+  id            SERIAL        PRIMARY KEY,
+  txid          VARCHAR(64)   NOT NULL UNIQUE,
+  from_address  VARCHAR(64)   NOT NULL,
+  to_address    VARCHAR(64)   NOT NULL,
+  amount        DECIMAL(20,8) NOT NULL,
+  fee           DECIMAL(20,8) NOT NULL DEFAULT 0.001,
+  data          TEXT          NULL,
+  created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee);
+
+-- ─── mining_sessions ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS mining_sessions (
+  id               SERIAL        PRIMARY KEY,
+  miner_address    VARCHAR(64)   NOT NULL,
+  block_id         INT           NULL,
+  hashes_computed  BIGINT        NOT NULL DEFAULT 0,
+  duration_ms      INT           NOT NULL DEFAULT 0,
+  hashrate         DECIMAL(20,2) NOT NULL DEFAULT 0,
+  success          SMALLINT      NOT NULL DEFAULT 0,
+  created_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

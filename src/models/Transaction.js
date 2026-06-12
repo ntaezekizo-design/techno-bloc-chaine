@@ -2,6 +2,8 @@
 const { query, queryOne, run } = require('../config/database');
 const { generateTxId, MIN_FEE, COINBASE_ADDRESS } = require('../config/blockchain');
 
+const isPostgres = (process.env.DATABASE_URL || '').startsWith('postgres');
+
 class Transaction {
   static async addToMempool(from, to, amount, fee = MIN_FEE) {
     const txid = generateTxId(from, to, amount, Date.now());
@@ -23,18 +25,28 @@ class Transaction {
   }
 
   static async confirm(tx, blockId) {
-    await run(`
-      INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'confirmed', NOW())
-      ON DUPLICATE KEY UPDATE block_id = ?, status = 'confirmed', confirmed_at = NOW()
-    `, [tx.txid, tx.from_address, tx.to_address, tx.amount, tx.fee || 0, blockId, blockId]);
+    if (isPostgres) {
+      // PostgreSQL : upsert avec ON CONFLICT
+      await run(`
+        INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', CURRENT_TIMESTAMP)
+        ON CONFLICT (txid) DO UPDATE SET block_id = ?, status = 'confirmed', confirmed_at = CURRENT_TIMESTAMP
+      `, [tx.txid, tx.from_address, tx.to_address, tx.amount, tx.fee || 0, blockId, blockId]);
+    } else {
+      // MySQL
+      await run(`
+        INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', CURRENT_TIMESTAMP)
+        ON DUPLICATE KEY UPDATE block_id = ?, status = 'confirmed', confirmed_at = CURRENT_TIMESTAMP
+      `, [tx.txid, tx.from_address, tx.to_address, tx.amount, tx.fee || 0, blockId, blockId]);
+    }
   }
 
   static async addCoinbase(minerAddress, reward, blockId) {
     const txid = generateTxId(COINBASE_ADDRESS, minerAddress, reward, Date.now());
     await run(`
       INSERT INTO transactions (txid, from_address, to_address, amount, fee, block_id, status, confirmed_at)
-      VALUES (?, 'COINBASE', ?, ?, 0, ?, 'confirmed', NOW())
+      VALUES (?, 'COINBASE', ?, ?, 0, ?, 'confirmed', CURRENT_TIMESTAMP)
     `, [txid, minerAddress, reward, blockId]);
   }
 
@@ -65,12 +77,12 @@ class Transaction {
   }
 
   static async validate(from, to, amount, fee) {
-    if (amount <= 0)      return { valid: false, error: 'Le montant doit être positif' };
-    if (fee < MIN_FEE)    return { valid: false, error: `Frais trop bas (min: ${MIN_FEE})` };
-    if (from === to)      return { valid: false, error: 'Impossible de vous envoyer à vous-même' };
+    if (amount <= 0)   return { valid: false, error: 'Le montant doit être positif' };
+    if (fee < MIN_FEE) return { valid: false, error: `Frais trop bas (min: ${MIN_FEE})` };
+    if (from === to)   return { valid: false, error: 'Impossible de vous envoyer à vous-même' };
 
     const wallet = await queryOne('SELECT balance FROM wallets WHERE address = ?', [from]);
-    if (!wallet)          return { valid: false, error: 'Portefeuille expéditeur introuvable' };
+    if (!wallet)       return { valid: false, error: 'Portefeuille expéditeur introuvable' };
     if (parseFloat(wallet.balance) < amount + fee)
       return { valid: false, error: 'Solde insuffisant' };
 

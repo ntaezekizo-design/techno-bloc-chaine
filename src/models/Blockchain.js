@@ -86,7 +86,7 @@ class Blockchain {
       SET total_blocks = total_blocks + 1,
           total_supply = total_supply + ?,
           total_transactions = total_transactions + ?,
-          last_block_time = NOW()
+          last_block_time = CURRENT_TIMESTAMP
       WHERE id = 1
     `, [block.reward, pendingTxs.length + 1]);
 
