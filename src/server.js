@@ -54,8 +54,38 @@ app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
 // ─── Error handler ────────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
+  const msg = err?.message || err?.toString() || 'Unknown error';
   if (isDev) console.error(err.stack);
-  res.status(500).json({ error: isDev ? err.message : 'Internal server error' });
+  else console.error('[ERROR]', msg);
+  res.status(500).json({ error: isDev ? msg : 'Internal server error' });
+});
+
+// ─── Debug route (diagnostics DB — visible sur Render) ───────────────────────
+app.get('/api/debug', async (req, res) => {
+  const dbUrl    = process.env.DATABASE_URL || '';
+  const dbType   = dbUrl.toLowerCase().includes('postgres') ? 'PostgreSQL' : 'MySQL';
+  const maskedUrl = dbUrl ? dbUrl.replace(/:\/\/[^@]+@/, '://***@') : '(non définie)';
+  let dbStatus   = 'non testé';
+  let dbError    = null;
+
+  try {
+    const { query } = require('./config/database');
+    await query('SELECT 1');
+    dbStatus = 'connecté ✅';
+  } catch (e) {
+    dbStatus = 'erreur ❌';
+    dbError  = e?.message || e?.toString() || 'erreur inconnue';
+  }
+
+  res.json({
+    env:       process.env.NODE_ENV,
+    db_type:   dbType,
+    db_url:    maskedUrl,
+    db_status: dbStatus,
+    db_error:  dbError,
+    node:      process.version,
+    uptime:    Math.round(process.uptime()) + 's',
+  });
 });
 
 // ─── Test connexion DB au démarrage ──────────────────────────────────────────
